@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Irriguo Indret DONNAS </title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 40px; background-color: #f4f7f6; }
+        .pannello { max-width: 850px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        h2 { color: #333; margin-bottom: 20px; }
+        /* Stile del nuovo tasto di collegamento */
+        .btn-link { display: block; width: 90%; padding: 12px; margin: 0 auto 25px auto; font-size: 30px; font-weight: bold; color: white; background-color: #17a2b8; text-decoration: none; border-radius: 5px; box-sizing: border-box; }
+        .btn-link:hover { background-color: #138496; }
+        .btn-cmd { width: 70%; padding: 12px; margin: 8px 0; font-size: 45px; font-weight: bold; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-apri { background-color: #d9534f; }
+        .btn-leggi { background-color: #0275d8; }
+        .btn-prova { background-color: #7275d8; }
+        .btn-comando { background-color: #774455; }
+    </style>
+</head>
+<body>
+
+<div class="pannello">
+    <!-- TASTO AGGIUNTO: Punta alla pagina di visualizzazione dello stato -->
+    <a href="view.html" class="btn-link">📊 VISUALIZZAZIONE STATO</a>
+
+    <h2>Invia Comando alla Vasca</h2>
+    
+    <form action="myphp.php" method="POST">
+       <!-- <input type="text" name="nome_file_utente" placeholder="es: vCOMANDUasca_log" required> -->
+        <input type="hidden" name="comando" value="CHIUDI" >
+        <input type="submit" class="btn-cmd btn-apri" value="Disponi: CHIUDI VALVOLA">
+    </form>
+
+    <form action="myphp.php" method="POST">
+        <input type="hidden" name="comando" value="APRI">
+        <input type="submit" class="btn-cmd btn-prova" value="Disponi: APRI VALVOLA">
+    </form>
+
+    <form action="myphp.php" method="POST">
+        <input type="hidden" name="comando" value="AUTO">
+        <input type="submit" class="btn-cmd btn-apri" value="Disponi: AUTO VALVOLA">
+    </form>
+    <form action="myphp.php" method="POST">
+        <input type="text" name="comando" value="???",required>
+        <input type="submit" class="btn-cmd btn-comando" value="INPUT COMANDO">
+    </form>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Sito IRRIGUO INDRET Donnas PA</title>
+    <style>
+        table { font-size: 32px; border-collapse: collapse; margin-top: 20px; width: 95%; font-family: sans-serif; }
+        th { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 36px; }
+        td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 28px; }
+        th { background-color: #5FFF5F; color: red; font-weight: bold; }    // COLORE RGB SFONDO DEL TITOLO   COLOR =COLORE CARATTERE
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        // tr:nth-child(3) td { font-size: 24px; color: blue;font-weight: bold;background-color: #FFFFAA;  }
+ 
+        #messaggio { font-weight: bold; color: #666; font-size:40px; }
+    </style>
+</head>
+<body>
+<h2>Gestione vasca ARTADA</h2>
+<div id="messaggio">Caricamento dati in corso...</div>
+<!-- Contenitore della tabella -->
+<div id="tabellaContenitore"></div>
+<p><button id="mioBottone">Indietro!</button></p>
+<p>
+<script>
+        // Variabile per accumulare i messaggi intercettati
+        let logMessaggi = "";
+
+        // 1. Intercettiamo la funzione nativa alert (la "msgbox" web)
+        const alertOriginale = window.alert;
+        window.alert = function(testo) {
+            // Aggiungiamo il testo intercettato alla nostra variabile con un a capo
+            logMessaggi += testo + "\n";
+            
+            // Chiamiamo comunque l'alert originale per mostrarlo a schermo (opzionale)
+            alertOriginale(testo);
+        };
+
+        // Funzione di prova per generare un alert
+        function showAlertOriginale() {
+            alert("Questo è un messaggio di prova intercettato!");
+        }
+
+        // 2. Funzione per scrivere e scaricare il contenuto su un file .txt
+        function scaricaFile() {
+            const blob = new Blob([logMessaggi], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'log_messaggi.txt'; // Nome del file di output
+            document.body.appendChild(a);
+            a.click();
+            
+            // Pulizia
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+<script>
+        // Sostituisci "dati.csv" con il percorso reale del tuo file sul server
+        const URL_FILE = 'mydata.txt'; 
+
+        // Funzione asincrona per scaricare e processare il file
+        async function caricaEElaboraCSV() {
+            try {
+                // 1. Scarica il file dal server
+                const timestamp = new Date().getTime();
+            //    const risposta = await fetch('${URL_FILE}?t=${timestamp}' , { cache: "no-store" });
+                const risposta = await fetch(URL_FILE , { cache: "no-store" });
+                
+                if (!risposta.ok) {
+                    throw new Error(`Impossibile caricare il file: ${risposta.statusText}`);
+                }
+
+                // 2. Estrae il testo standard dal file caricato
+                const testoCompleto = await risposta.text();
+                
+                // 3. DIVIDE IL TESTO IN RIGHE
+                const righe = testoCompleto.split(/\r?\n/);
+                let htmlTabella = '<table>';
+
+                righe.forEach((riga, indiceRiga) => {
+                    if (riga.trim() === '') return; // Salta righe vuote
+
+                    // 4. DIVIDE OGNI RIGA IN CELLE (Cambia ',' in ';' se necessario)
+                    const celle = riga.split(',');
+                   // htmlTabella += '<tr>';
+                        let stileRiga = "";
+                        let stileCellaSpeciale ="";
+                    if (riga.toUpperCase().includes("COMMAND.TXT") || riga.toUpperCase().includes("PCDATA.CSV"))
+                           {
+                             stileRiga = ' style="font-size: 100px !important; background-color: #22CCCC; font-weight: bold; color: blue;"';
+                                
+                              // Gestione del testo (dimensione 40px, grassetto e colore blu forzati sulla cella)
+                              stileCellaSpeciale = ' style="font-size: 40px !important; font-weight: bold; color: blue !important;"';
+  
+                             htmlTabella += `<tr${stileRiga}>`;
+                           }  else            
+                           htmlTabella += '<tr>';
+                    
+                    celle.forEach(cella => {
+                        const datoPulito = cella.trim().replace(/^"|"$/g, ''); 
+                        
+                           {
+                          //    if (indiceRiga == 1   && datoPulito > 20)      
+                            //     setTimeout(caricaEElaboraCSV, 10000);
+        
+                        if (indiceRiga === 0) 
+                        {
+                            htmlTabella += `<th>${datoPulito}</th>`; // Intestazione
+                        } else 
+                        {
+                            htmlTabella += `<td${stileCellaSpeciale}>${datoPulito}</td>`; 
+                        }
+                            }
+                    });
+
+                    htmlTabella += '</tr>';
+                });
+
+                htmlTabella += '</table>';
+
+                // Nasconde il messaggio di caricamento e mostra la tabella
+                document.getElementById('messaggio').style.display = 'none';
+                document.getElementById('tabellaContenitore').innerHTML = htmlTabella;
+
+            } catch (errore) {
+                // Gestione in caso di file mancante o errore di rete
+                document.getElementById('messaggio').textContent = "Errore: " + errore.message;
+                document.getElementById('messaggio').style.color = "green";
+            }
+        }
+    
+            // Avvia la funzione automaticamente al caricamento della pagina
+   //     window.addEventListener('DOMContentLoaded', caricaEElaboraCSV);
+    // Questo comando avvia il parsing del file non appena la pagina ha finito di caricarsi
+    
+    
+   window.addEventListener('DOMContentLoaded', () => {
+    caricaEElaboraCSV(); // Primo caricamento immediato
+    
+    // ---------------------------------------------------------------------
+    // TIMER DI REFRESH FISSO (60 Secondi)
+    // ---------------------------------------------------------------------
+    // 60000 millisecondi corrispondono esattamente a 1 minuto.
+    // Ogni minuto il browser riesegue la funzione, scarica il file aggiornato 
+    // dal Raspberry e ridisegna la tabella con i nuovi caratteri giganti.
+    setInterval(caricaEElaboraCSV, 10000); 
+});
+
+    
+    
+    
+    
+    </script>
+</body>
+</html>
