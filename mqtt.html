@@ -1,0 +1,121 @@
+html<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Irriguo Indret DONNAS</title>
+    <!-- Inclusione della libreria ufficiale MQTT per far parlare il browser con HiveMQ -->
+    <script src="https://unpkg.com"></script>
+    
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 40px; background-color: #f4f7f6; }
+        .pannello { max-width: 850px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        h2 { color: #333; margin-bottom: 20px; }
+        .btn-link { display: block; width: 90%; padding: 12px; margin: 0 auto 25px auto; font-size: 30px; font-weight: bold; color: white;
+                    background-color: #17a2b8; text-decoration: none; border-radius: 5px; box-sizing: border-box; }
+        .btn-link:hover { background-color: #138496; }
+        .btn-cmd { width: 70%; padding: 12px; margin: 8px 0; font-size: 45px; font-weight: bold; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-apri { background-color: #d9534f; }
+        .btn-leggi { background-color: #0275d8; }
+        .btn-prova { background-color: #7275d8; }
+        .btn-comando { background-color: #774455; font-size: 45px; }
+        .input-testo { width: 66%; padding: 12px; font-size: 25px; text-align: center; margin: 10px 0; border: 2px solid #ccc; border-radius: 5px; }
+        
+        /* Stile per il display dello stato dell'invio */
+        #status-display { width: 80%; margin: 15px auto; padding: 15px; font-size: 24px; font-weight: bold; border-radius: 5px; display: none; }
+        .status-loading { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .status-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+
+<div class="pannello">
+    <!-- TASTO DI COLLEGAMENTO: Punta alla pagina di visualizzazione dello stato -->
+    <a href="index.html" class="btn-link">📊 VISUALIZZAZIONE STATO</a>
+
+    <h2>Invia Comando alla Vasca</h2>
+    
+    <!-- Area notifiche per l'operatore -->
+    <div id="status-display"></div>
+
+    <!-- Pulsanti mappati con le funzioni JavaScript -->
+    <button class="btn-cmd btn-apri" onclick="inviaMqtt('CHIUDI')">CHIUDI VALVOLA</button>
+    
+    <button class="btn-cmd btn-prova" onclick="inviaMqtt('APRI')">APRI VALVOLA</button>
+    
+    <button class="btn-cmd btn-apri" onclick="inviaMqtt('AUTO,0,0,0\nADC,2,3,3\nwait,10,10,10')">AUTO VALVOLA</button>
+    
+    <!-- Input manuale mantenendo le tue classi grafiche -->
+    <div>
+        <input type="text" id="comando_manuale" class="input-testo" value="???">
+        <button class="btn-cmd btn-comando" onclick="inviaManuale()">INPUT COMANDO</button>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // CONFIGURAZIONE HOST MQTT (Configura qui i tuoi dati)
+    // ==========================================
+    const BROKER_URL = 'wss://81ae066616fc412a982bd3f894410810.s1.eu.hivemq.cloud:443/mqtt'; // Inserisci il tuo Host Cloud
+    const OPTIONS = {
+        username: 'IRRIGUOINDRET',
+        password: 'Irriguo_2026',
+        clientId: 'Web_Interface_' + Math.random().toString(16).substr(2, 8)
+    };
+    
+    // Il topic scelto per i comandi
+    const TOPIC_COMANDO = "irriguo/donnas/pi3_1/comando";
+
+    // Funzione principale di invio
+    function inviaMqtt(stringaComando) {
+        const display = document.getElementById('status-display');
+        
+        // Mostra lo stato di caricamento a schermo
+        display.style.display = 'block';
+        display.className = 'status-loading';
+        display.innerText = "Connessione al Broker Cloud...";
+
+        // Sostituisce il vecchio comportamento PHP che rimpiazzava il pipe con l'andata a capo
+        let comandoPulito = stringaComando.replace(/\|/g, "\n");
+
+        // Apre la connessione istantanea via WebSockets (Porta 443 di HiveMQ)
+        const client = mqtt.connect(BROKER_URL, OPTIONS);
+
+        client.on('connect', function () {
+            display.innerText = "Inviando comando...";
+            
+            // Pubblica il comando sul topic (QoS 1 assicura la consegna) [1]
+            client.publish(TOPIC_COMANDO, comandoPulito, { qos: 1 }, function (err) {
+                if (!err) {
+                    display.className = 'status-success';
+                    display.innerText = "Comando inviato correttamente!";
+                } else {
+                    display.className = 'status-error';
+                    display.innerText = "Errore durante l'invio del messaggio.";
+                }
+                // Chiude la connessione per risparmiare risorse sul browser
+                client.end();
+            });
+        });
+
+        client.on('error', function (err) {
+            console.error(err);
+            display.className = 'status-error';
+            display.innerText = "Errore di connessione. Controlla le credenziali.";
+            client.end();
+        });
+    }
+
+    // Funzione specifica per catturare il testo dal campo manuale
+    function inviaManuale() {
+        const testo = document.getElementById('comando_manuale').value;
+        if (testo.trim() === "" || testo === "???") {
+            alert("Inserisci un comando valido prima di premere invio.");
+            return;
+        }
+        inviaMqtt(testo);
+    }
+</script>
+
+</body>
+</html>
