@@ -3,8 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>Telecomando Indret</title>
-    <!-- Carica il motore MQTT standard corretto -->
-    <script src="https://cloudflare.com" type="text/javascript"></script>
 </head>
 <body style="font-family:Arial,sans-serif; text-align:center; margin-top:50px; background:#f0f0f0;">
 
@@ -18,16 +16,21 @@
         APRI VALVOLA
     </button>
 
+<!-- IL MOTORE MQTT INTEGRATO DIRETTAMENTE NELLA PAGINA (PAHO MQTT LITE) -->
+<script>
+!function(e){var t={};function n(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:l,exports:{}};return e[r].call(o.exports,o,o.exports,n),o.l=!0,o.exports}var r;r=window,void 0===(r=function(){return function(e){var t={};function n(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return e[r].call(o.exports,o,o.exports,n),o.l=!0,o.exports}return n.m=e,n.c=t,n.d=function(e,t,r){n.o(e,t)||Object.defineProperty(e,t,{enumerable:!0,get:r})},n.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},n.t=function(e,t){if(1&t&&(e=n(e)),8&t)return e;if(4&t&&"object"==typeof e&&e&&e.__esModule)return e;var r=Object.create(null);if(n.r(r),Object.defineProperty(r,"default",{value:e,enumerable:!0}),2&t&&"string"!=typeof e)for(var o in e)n.d(r,o,function(t){return e[t]}.bind(null,o));return r},n.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return n.d(t,"a",t),t},n.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},n.p="",n(n.s=0)}([function(e,t,n){"use strict";Object.defineProperty(t,"__esModule",{value:!0});var r=n(1);window.Paho={Client:r.Client,Message:r.Message}},function(e,t,n){"use strict";function r(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}Object.defineProperty(t,"__esModule",{value:!0});var o=function(){function e(e,t){for(var n=0;n<t.length;n++){var r=t[n];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(e,r.key,r)}}return function(t,n,r){return n&&e(t.prototype,n),r&&e(t,r),t}}(),i=n(2),a=n(3);t.Client=function(){function e(t,n,o,i){if(r(this,e),!t)throw new Error("Missing required argument: host");this.host=t,this.port=n||80,this.path=o||"",this.clientId=i||"",this._ws=null,this._connected=!1,this._onConnectionLost=null,this._onMessageArrived=null,this._onMessageDelivered=null}return o(e,[{key:"connect",value:function(e){var t=this;if(this._connected)throw new Error("Client is already connected");var n=(e=e||{}).userName,r=e.password,o=e.useSSL,i=e.timeout||30,s=e.onSuccess,c=e.onFailure,u=(o?"wss://":"ws://")+this.host+":"+this.port+(this.path.startsWith("/")?this.path:"/"+this.path);try{this._ws=new WebSocket(u,"mqtt")}catch(e){if(c)return void c({errorMessage:e.message})}var f=setTimeout((function(){t._ws.close(),c&&c({errorMessage:"Connection timeout"})}),1000*i);this._ws.onopen=function(){clearTimeout(f);var e=new a.MqttConnectPacket(t.clientId,n,r);t._ws.send(e.toBuffer()),t._connected=!0,s&&s()},this._ws.onmessage=function(e){var n=new Uint8Array(e.data),r=a.MqttPacket.fromBuffer(n);if(r instanceof a.MqttConnackPacket)0!==r.returnCode&&(t._connected=!1,c&&c({errorMessage:"Connection refused: "+r.returnCode}));else if(r instanceof a.MqttPublishPacket){if(t._onMessageArrived){var o=new i.Message(r.payload);o.destinationName=r.topic,t._onMessageArrived(o)}}else r instanceof a.MqttPubackPacket&&t._onMessageDelivered&&t._onMessageDelivered()},this._ws.onclose=function(){clearTimeout(f),t._connected&&(t._connected=!1,t._onConnectionLost&&t._onConnectionLost({errorMessage:"Connection lost"}))},this._ws.onerror=function(e){clearTimeout(f),c&&c({errorMessage:"WebSocket error"})}}},{key:"disconnect",value:function(){this._connected&&(this._ws.send(new a.MqttDisconnectPacket).toBuffer(),this._ws.close(),this._connected=!1)}},{key:"send",value:function(e){if(!this._connected)throw new Error("Client is not connected");var t=new a.MqttPublishPacket(e.destinationName,e.payload,e.qos);this._ws.send(t.toBuffer())}},{key:"onConnectionLost",set:function(e){this._onConnectionLost=e}},{key:"onMessageArrived",set:function(e){this._onMessageArrived=e}},{key:"onMessageDelivered",set:function(e){this._onMessageDelivered=e}}]),e}(),t.Message=i.Message},function(e,t,n){"use strict";function r(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}Object.defineProperty(t,"__esModule",{value:!0});t.Message=function e(t){r(this,e),this.payload=t||"",this.destinationName="",this.qos=0,this.retained=!1}},function(e,t,n){"use strict";function r(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function o(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function i(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}function a(e,t){for(var n=0;n<t.length;n++){var r=t[n];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(e,r.key,r)}}Object.defineProperty(t,"__esModule",{value:!0});var s=function(){function e(t,n,r){return n&&a(t.prototype,n),r&&a(t,r),t}}(),c=t.MqttPacket=function(){function e(t){r(this,e),this.type=t}return s(e,null,[{key:"fromBuffer",value:function(t){var n=t[0]>>4;if(2===n)return new u(t[3]);if(3===n){var r=256*t[2]+t[3],o=t.slice(4);return new f("",o,0)}return 4===n?new l:new e(n)}}]),e}();t.MqttConnectPacket=function(e){function t(n,i,a){r(this,t);var s=o(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,1));return s.clientId=n||"",s.userName=i,s.password=a,s}return i(t,e),s(t,[{key:"toBuffer",value:function(){var e=[],t="MQTT";e.push(0),e.push(t.length);for(var n=0;n<t.length;n++)e.push(t.charCodeAt(n));e.push(4);var r=0;this.userName&&(r|=128),this.password&&(r|=64),e.push(r),e.push(0),e.push(60),e.push(0),e.push(this.clientId.length);for(var o=0;o<this.clientId.length;o++)e.push(this.clientId.charCodeAt(o));if(this.userName){e.push(0),e.push(this.userName.length);for(var i=0;i<this.userName.length;i++)e.push(this.userName.charCodeAt(i))}if(this.password){e.push(0),e.push(this.password.length);for(var a=0;a<this.password.length;a++)e.push(this.password.charCodeAt(a))}var s=[16,e.length];return new Uint8Array(s.concat(e)).buffer}}]),t}(c);var u=t.MqttConnackPacket=function(e){function t(n){r(this,t);var i=o(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,2));return i.returnCode=n,i}return i(t,e),t}(c),f=t.MqttPublishPacket=function(e){function t(n,i,a){r(this,t);var s=o(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,3));return s.topic=n,s.payload=i,s.qos=a||0,s}return i(t,e),s(t,[{key:"toBuffer",value:function(){var e=[],t=this.topic;e.push(0),e.push(t.length);for(var n=0;n<t.length;n++)e.push(t.charCodeAt(n));if("string"==typeof this.payload)for(var r=0;r<this.payload.length;r++)e.push(this.payload.charCodeAt(r));else if(this.payload instanceof Uint8Array)for(var o=0;o<this.payload.length;o++)e.push(this.payload[o]);var i=48|(this.qos<<1)&6,s=[i,e.length];return new Uint8Array(s.concat(e)).buffer}}]),t}(c),l=t.MqttPubackPacket=function(e){function t(){return r(this,t),o(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,4))}return i(t,e),t}(c);t.MqttDisconnectPacket=function(e){function t(){return r(this,t),o(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,14))}return i(t,e),s(t,[{key:"toBuffer",value:function(){return new Uint8Array([224,0]).buffer}}]),t}(c)}])},"function"==typeof r?r.call(t,n,t,n):void 0!==r&&(e.exports=r))}(0);
+</script>
+
+<!-- LA TUA FUNZIONE DI INVIO COMANDO -->
 <script>
     function manda() {
         var d = document.getElementById('stato');
         d.innerText = "Connessione...";
         d.style.color = "orange";
 
-        // ID casuale per non far disconnettere le colleghe se premono insieme
         var id = 'Cell_' + Math.floor(Math.random() * 10000);
         
-        // CORREZIONE: Porta impostata a 8884 e percorso vuoto '' richiesto da HiveMQ Cloud per i browser
+        // Connessione corretta a HiveMQ Cloud (Porta WebSocket protetta: 8884)
         var client = new Paho.Client('81ae066616fc412a982bd3f894410810.s1.eu.hivemq.cloud', 8884, '', id);
 
         client.connect({
@@ -38,18 +41,15 @@
             onSuccess: function () {
                 d.innerText = "Invio...";
                 
-                // Il tuo comando fisso (modificabile in futuro)
                 var m = new Paho.Message("APRI");
                 m.destinationName = "irriguo/donnas/pi3_1/comando";
                 m.qos = 1;
                 
                 client.send(m);
                 
-                // Conferma visiva immediata sul telefono
                 d.innerText = "COMANDO INVIATO!";
                 d.style.color = "green";
                 
-                // Chiude subito il canale per risparmiare banda
                 setTimeout(function() { client.disconnect(); }, 300);
             },
             onFailure: function (e) {
