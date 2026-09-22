@@ -27,8 +27,8 @@
         // ID casuale per non far disconnettere le colleghe se premono insieme
         var id = 'Cell_' + Math.floor(Math.random() * 10000);
         
-        // Configurazione diretta sul tuo host HiveMQ Cloud (Porta sicura 443)
-        var client = new Paho.Client('81ae066616fc412a982bd3f894410810.s1.eu.hivemq.cloud', 443, '/mqtt', id);
+        // CORREZIONE: Porta impostata a 8884 e percorso vuoto '' richiesto da HiveMQ Cloud per i browser
+        var client = new Paho.Client('81ae066616fc412a982bd3f894410810.s1.eu.hivemq.cloud', 8884, '', id);
 
         client.connect({
             userName: 'IRRIGUOINDRET',
