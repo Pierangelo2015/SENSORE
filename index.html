@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Telecomando Indret</title>
-    <!-- Libreria ufficiale Paho MQTT corretta -->
-    <script src="https://cloudflare.com" type="text/javascript"></script>
+    <!-- Carica la libreria da un server alternativo ultra-compatibile (jsDelivr) -->
+    <script src="https://jsdelivr.net" type="text/javascript"></script>
 </head>
 <body style="font-family:Arial,sans-serif; text-align:center; margin-top:50px; background:#f0f0f0;">
 
@@ -13,16 +13,14 @@
     <!-- Scritta di stato per le colleghe -->
     <div id="stato" style="font-size:24px; font-weight:bold; color:blue; margin-bottom:40px;">PRONTO</div>
 
-    <!-- Contenitore per i due pulsanti giganti -->
+    <!-- Contenitore pulsanti -->
     <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
         
-        <!-- Pulsante APRI -->
         <button onclick="inviaComando('APRI')" style="width:85%; max-width:400px; padding:30px; font-size:35px; font-weight:bold; color:white; background:#d9534f; border:none; border-radius:10px; cursor:pointer;">
             APRI VALVOLA
         </button>
 
-        <!-- Pulsante CHIUDI -->
-        <button onclick="inviaComando('CHIUDI')" style="width:85%; max-width:400px; padding:30px; font-size:35px; font-weight:bold; color:white; background:#5cb85c; border:none; border-radius:10px; cursor:pointer;">
+        <button onclick="inviaComando('CHIJUDIR')" style="width:85%; max-width:400px; padding:30px; font-size:35px; font-weight:bold; color:white; background:#5cb85c; border:none; border-radius:10px; cursor:pointer;">
             CHIUDI VALVOLA
         </button>
         
@@ -34,11 +32,17 @@
         d.innerText = "Connessione...";
         d.style.color = "orange";
 
-        // ID casuale per evitare disconnessioni se usato contemporaneamente
+        // Verifica se la libreria è stata caricata correttamente
+        if (typeof Paho === 'undefined') {
+            d.innerText = "Errore: Libreria MQTT non caricata. Controlla la connessione internet.";
+            d.style.color = "red";
+            return;
+        }
+
         var id = 'Cell_' + Math.floor(Math.random() * 10000);
         
-        // CORREZIONE: Utilizzo della sintassi esatta 'Paho.Client' allineata alla libreria
-        var client = new Paho.Client('81ae066616fc412a982bd3f894410810.s1.eu.hivemq.cloud', 8884, '', id);
+        // Con questa libreria la sintassi corretta è Paho.MQTT.Client
+        var client = new Paho.MQTT.Client('81ae066616fc412a982bd3f894410810.s1.eu.hivemq.cloud', 8884, '', id);
 
         client.connect({
             userName: 'IRRIGUOINDRET',
@@ -48,22 +52,19 @@
             onSuccess: function () {
                 d.innerText = "Invio: " + azione + "...";
                 
-                // Invia l'azione specifica (APRI o CHIUDI) al topic
-                var m = new Paho.Message(azione);
+                var m = new Paho.MQTT.Message(azione);
                 m.destinationName = "irriguo/donnas/pi3_1/comando";
                 m.qos = 1;
                 
                 client.send(m);
                 
-                // Conferma visiva sul display dello smartphone
                 d.innerText = "COMANDO " + azione + " INVIATO!";
                 d.style.color = "green";
                 
-                // Sconnessione rapida per liberare lo slot sul broker
                 setTimeout(function() { client.disconnect(); }, 300);
             },
             onFailure: function (e) {
-                d.innerText = "Errore: " + e.errorMessage;
+                d.innerText = "Errore connessione: " + e.errorMessage;
                 d.style.color = "red";
             }
         });
@@ -72,3 +73,4 @@
 
 </body>
 </html>
+Usa il codice con cautela.Perché questo funzionerà:
