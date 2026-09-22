@@ -2,49 +2,63 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Irriguo Indret DONNAS </title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin-top: 40px; background-color: #f4f7f6; }
-        .pannello { max-width: 850px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        h2 { color: #333; margin-bottom: 20px; }
-        /* Stile del nuovo tasto di collegamento */
-        .btn-link { display: block; width: 90%; padding: 12px; margin: 0 auto 25px auto; font-size: 30px; font-weight: bold; color: white; background-color: #17a2b8; text-decoration: none; border-radius: 5px; box-sizing: border-box; }
-        .btn-link:hover { background-color: #138496; }
-        .btn-cmd { width: 70%; padding: 12px; margin: 8px 0; font-size: 45px; font-weight: bold; color: white; border: none; border-radius: 5px; cursor: pointer; }
-        .btn-apri { background-color: #d9534f; }
-        .btn-leggi { background-color: #0275d8; }
-        .btn-prova { background-color: #7275d8; }
-        .btn-comando { background-color: #774455; }
-    </style>
+    <title>Telecomando Indret</title>
+    <!-- Carica il motore MQTT standard (1 sola riga, impossibile da tagliare) -->
+    <script src="https://cloudflare.com"></script>
 </head>
-<body>
+<body style="font-family:Arial,sans-serif; text-align:center; margin-top:50px; background:#f0f0f0;">
 
-<div class="pannello">
-    <!-- TASTO AGGIUNTO: Punta alla pagina di visualizzazione dello stato -->
-    <a href="view.html" class="btn-link">📊 VISUALIZZAZIONE STATO</a>
-
-    <h2>Invia Comando alla Vasca</h2>
+    <h2>INDRET - TELECOMANDO VASCA</h2>
     
-    <form action="myphp.php" method="POST">
-       <!-- <input type="text" name="nome_file_utente" placeholder="es: vCOMANDUasca_log" required> -->
-        <input type="hidden" name="comando" value="CHIUDI" >
-        <input type="submit" class="btn-cmd btn-apri" value="Disponi: CHIUDI VALVOLA">
-    </form>
+    <!-- Scritta di stato per le colleghe -->
+    <div id="stato" style="font-size:24px; font-weight:bold; color:blue; margin-bottom:40px;">PRONTO</div>
 
-    <form action="myphp.php" method="POST">
-        <input type="hidden" name="comando" value="APRI">
-        <input type="submit" class="btn-cmd btn-prova" value="Disponi: APRI VALVOLA">
-    </form>
+    <!-- Pulsante gigante facilissimo da premere da smartphone -->
+    <button onclick="manda()" style="width:85%; max-width:400px; padding:30px; font-size:35px; font-weight:bold; color:white; background:#d9534f; border:none; border-radius:10px; cursor:pointer;">
+        APRI VALVOLA
+    </button>
 
-    <form action="myphp.php" method="POST">
-        <input type="hidden" name="comando" value="AUTO">
-        <input type="submit" class="btn-cmd btn-apri" value="Disponi: AUTO VALVOLA">
-    </form>
-    <form action="myphp.php" method="POST">
-        <input type="text" name="comando" value="???",required>
-        <input type="submit" class="btn-cmd btn-comando" value="INPUT COMANDO">
-    </form>
-</div>
+<script>
+    function manda() {
+        var d = document.getElementById('stato');
+        d.innerText = "Connessione...";
+        d.style.color = "orange";
+
+        // ID casuale per non far disconnettere le colleghe se premono insieme
+        var id = 'Cell_' + Math.floor(Math.random() * 10000);
+        
+        // Configurazione diretta sul tuo host HiveMQ Cloud (Porta sicura 443)
+        var client = new Paho.Client('81ae066616fc412a982bd3f894410810.s1.eu.hivemq.cloud', 443, '/mqtt', id);
+
+        client.connect({
+            userName: 'IRRIGUOINDRET',
+            password: 'Irriguo_2026',
+            useSSL: true,
+            timeout: 5,
+            onSuccess: function () {
+                d.innerText = "Invio...";
+                
+                // Il tuo comando fisso (modificabile in futuro)
+                var m = new Paho.Message("APRI");
+                m.destinationName = "irriguo/donnas/pi3_1/comando";
+                m.qos = 1;
+                
+                client.send(m);
+                
+                // Conferma visiva immediata sul telefono
+                d.innerText = "COMANDO INVIATO!";
+                d.style.color = "green";
+                
+                // Chiude subito il canale per risparmiare banda
+                setTimeout(function() { client.disconnect(); }, 300);
+            },
+            onFailure: function (e) {
+                d.innerText = "Errore: " + e.errorMessage;
+                d.style.color = "red";
+            }
+        });
+    }
+</script>
 
 </body>
 </html>
