@@ -3,28 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <title>Telecomando Indret</title>
-    <!-- Carica la libreria da un server alternativo ultra-compatibile (jsDelivr) -->
-    <script src="https://jsdelivr.net" type="text/javascript"></script>
 </head>
 <body style="font-family:Arial,sans-serif; text-align:center; margin-top:50px; background:#f0f0f0;">
 
     <h2>INDRET - TELECOMANDO VASCA</h2>
     
-    <!-- Scritta di stato per le colleghe -->
     <div id="stato" style="font-size:24px; font-weight:bold; color:blue; margin-bottom:40px;">PRONTO</div>
 
-    <!-- Contenitore pulsanti -->
     <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
-        
         <button onclick="inviaComando('APRI')" style="width:85%; max-width:400px; padding:30px; font-size:35px; font-weight:bold; color:white; background:#d9534f; border:none; border-radius:10px; cursor:pointer;">
-            APRI VALVOLA
+            APRI VALVOLA4
         </button>
-
-        <button onclick="inviaComando('CHIJUDIR')" style="width:85%; max-width:400px; padding:30px; font-size:35px; font-weight:bold; color:white; background:#5cb85c; border:none; border-radius:10px; cursor:pointer;">
+        <button onclick="inviaComando('CHIUDI')" style="width:85%; max-width:400px; padding:30px; font-size:35px; font-weight:bold; color:white; background:#5cb85c; border:none; border-radius:10px; cursor:pointer;">
             CHIUDI VALVOLA
         </button>
-        
     </div>
+
+<script>
+// MOTORE MQTT MINIMO INTEGRATO
+var Paho = {
+    MQTT: {
+        Client: function(host, port, path, clientId) {
+            var ws;
+            var connected = false;
+            this.connect = function(options) {
+                ws = new WebSocket((options.useSSL ? "wss://" : "ws://") + host + ":" + port + "/mqtt", "mqtt");
+                ws.binaryType = "arraybuffer";
+                
+                var timer = setTimeout(function() {
+                    ws.close();
+                    if(options.onFailure) options.onFailure({errorMessage: "Timeout"});
+                }, (options.timeout || 5) * 1000);
+
+                ws.onopen = function() {
+                    clearTimeout(timer);
+                    var pkt = [16, 12 + clientId.length + (options.userName ? 4 + options.userName.length + options.password.length : 0), 0, 4, 77, 81, 84, 84, 4, (options.userName ? 128 | 64 : 0), 0, 60, 0, clientId.length];
+                    for(var i=0; i<clientId.length; i++) pkt.push(clientId.charCodeAt(i));
+                    if(options.userName) {
+                        pkt.push(0, options.userName.length);
+                        for(var i=0; i<options.userName.length; i++) pkt.push(options.userName.charCodeAt(i));
+                        pkt.push(0, options.password.length);
+                        for(var i=0; i<options.password.length; i++) pkt.push(options.password.charCodeAt(i));
+                    }
+                    ws.send(new Uint8Array(pkt).buffer);
+                };
+
+                ws.onmessage = function(e) {
+                    var buf = new Uint8Array(e.data);
+                    if((buf[0] & 240) === 32) {
+                        connected = true;
+                        if(options.onSuccess) options.onSuccess();
+                    }
+                };
+
+                ws.onerror = function() {
+                    clearTimeout(timer);
+                    if(options.onFailure) options.onFailure({errorMessage: "Errore WebSocket"});
+                };
+                
+                ws.onclose = function() {
+                    connected = false;
+                };
+            };
+
+            this.disconnect = function() {
+                if(ws) ws.close();
+                connected = false;
+            };
+
+            this.send = function(msg) {
+                if(!connected) return;
+                var pkt = [48, 2 + msg.destinationName.length + msg.payload.length, 0, msg.destinationName.length];
+                for(var i=0; i<msg.destinationName.length; i++) pkt.push(msg.destinationName.charCodeAt(i));
+                for(var i=0; i<msg.payload.length; i++) pkt.push(msg.payload.charCodeAt(i));
+                ws.send(new Uint8Array(pkt).buffer);
+            };
+        },
+        Message: function(payload) {
+            this.payload = payload;
+            this.destinationName = "";
+        }
+    }
+};
+</script>
 
 <script>
     function inviaComando(azione) {
@@ -32,16 +93,7 @@
         d.innerText = "Connessione...";
         d.style.color = "orange";
 
-        // Verifica se la libreria è stata caricata correttamente
-        if (typeof Paho === 'undefined') {
-            d.innerText = "Errore: Libreria MQTT non caricata. Controlla la connessione internet.";
-            d.style.color = "red";
-            return;
-        }
-
         var id = 'Cell_' + Math.floor(Math.random() * 10000);
-        
-        // Con questa libreria la sintassi corretta è Paho.MQTT.Client
         var client = new Paho.MQTT.Client('81ae066616fc412a982bd3f894410810.s1.eu.hivemq.cloud', 8884, '', id);
 
         client.connect({
@@ -54,7 +106,6 @@
                 
                 var m = new Paho.MQTT.Message(azione);
                 m.destinationName = "irriguo/donnas/pi3_1/comando";
-                m.qos = 1;
                 
                 client.send(m);
                 
@@ -64,7 +115,7 @@
                 setTimeout(function() { client.disconnect(); }, 300);
             },
             onFailure: function (e) {
-                d.innerText = "Errore connessione: " + e.errorMessage;
+                d.innerText = "Errore: " + e.errorMessage;
                 d.style.color = "red";
             }
         });
@@ -73,4 +124,3 @@
 
 </body>
 </html>
-Usa il codice con cautela.Perché questo funzionerà:
