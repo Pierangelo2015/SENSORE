@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telecomando Riservato Indret</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 30px; background: #f0f0f0; padding: 10px; }
+        .pannello { max-width: 850px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); box-sizing: border-box; }
+        h2 { color: #333; margin-bottom: 20px; }
+        .btn-cmd { width: 85%; max-width: 450px; padding: 18px; margin: 10px 0; font-size: 30px; font-weight: bold; color: white; border: none; border-radius: 10px; cursor: pointer; display: inline-block; box-shadow: 0 3px 6px rgba(0,0,0,0.1); }
+        .btn-apri { background-color: #d9534f; }
+        .btn-chiudi { background-color: #5cb85c; }
+        .btn-prova { background-color: #7275d8; }
+        .btn-comando { background-color: #774455; font-size: 28px; padding: 15px; }
+        .input-manuale { padding: 12px; font-size: 18px; text-align: center; border-radius: 5px; border: 2px solid #774455; width: 80%; max-width: 400px; margin-top: 15px; box-sizing: border-box; }
+        .btn-link { display: block; width: 85%; max-width: 450px; padding: 15px; margin: 25px auto 0 auto; font-size: 20px; font-weight: bold; color: white; background-color: #0275d8; text-decoration: none; border-radius: 10px; box-shadow: 0 3px 6px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+<div class="pannello">
+    <h2>INDRET - TELECOMANDO BEVYWISE DISPOSITIVO: <span id="nome_device" style="color: purple;">...</span></h2>
+    
+    <div id="stato_reale" style="font-size:26px; font-weight:bold; color:blue; margin-bottom:10px;">ATTESA LIBRERIA...</div>
+    <div id="UltimoAggiornamento" style="font-size:12px; color:#666; margin-bottom:35px;">Nessun dato ricevuto</div>
+
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+        <button onclick="inviaComando('APRI')" class="btn-cmd btn-apri">APRI VALVOLA</button>
+        <button onclick="inviaComando('CHIUDI')" class="btn-cmd btn-chiudi">CHIUDI VALVOLA</button>
+        <button onclick="inviaComando('AUTO,0,0,0|ADC,2,3,3|wait,10,10,10')" class="btn-cmd btn-prova">AUTO VALVOLA</button>
+        
+        <div style="width: 100%; margin-top: 15px;">
+            <input type="text" id="testo_comando_libero" class="input-manuale" placeholder="Scrivi comando manuale..."><br>
+            <button onclick="inviaComandoManualeLetto()" class="btn-cmd btn-comando" style="margin-top: 10px; width: 85%;">INPUT COMANDO</button>
+        </div>
+        
+        <a href="index2.html" class="btn-link">📊 TORNA ALLA HOME</a>
+    </div>
+
+    <p style="font-style: italic; color: #666; margin-top: 40px; font-size: 14px;">
+        "L'acqua è un bene prezioso, non sprecarla."
+    </p>
+</div>
+
+<!-- NUOVO LINK: Usiamo il server Cloudflare (cdnjs) che InfinityFree NON blocca -->
+<script src="https://cloudflare.com"></script>
+
+<script>
+// 1. LETTURA PARAMETRI URL E DISPOSITIVO
+var urlParams = new URLSearchParams(window.location.search);
+var deviceID = urlParams.get('device') || 'pi3_2';
+var numeroIDPuro = deviceID.replace(/[^0-9]/g, '') || '2';
+document.getElementById('nome_device').innerText = "VASCA " + numeroIDPuro;
+
+// Allineamento canali speculare al tuo script Python (Invertiti rispetto a prima!)
+var topicComando = "irriguo/donnas/pi3_" + numeroIDPuro + "/stato";    
+var topicStato = "irriguo/donnas/pi3_" + numeroIDPuro + "/comando";     
+
+var mqttClient = null;
+
+function inizializzaMqtt() {
+    if (typeof mqtt === 'undefined') {
+        document.getElementById('stato_reale').innerText = "ERRORE CARICAMENTO MOTORE";
+        return;
+    }
+
+    document.getElementById('stato_reale').innerText = "CONNESSONE IN CORSO...";
+
+    // ID FISSO PER OCCUPARE SOLO 1 SLOT DEI 25 DI BEVYWISE
+    var idClientFisso = 'Web_Donnas_Vasca_' + numeroIDPuro;
+
+    // Opzioni con credenziali che pretendono l'accesso identico al Raspberry
+    var opzioni = {
+        clientId: idClientFisso,
+        username: 'xgW9jpWlxSieGetEDZ',
+        password: 'Y4H3Mb2qCPTSE0cuAv',
+        clean: true,
+        connectTimeout: 4000,
+        keepalive: 60
+    };
+
+    // LA SVOLTA: Se siamo sul PC locale (file://) usiamo ws://, se siamo online (https) usiamo wss:// automaticamente
+    var protocolloWeb = (window.location.protocol === "https:") ? "wss" : "ws";
+    var portaWeb = (window.location.protocol === "https:") ? 10443 : 8081;
+    
+    console.log("Tento la connessione ufficiale su: " + protocolloWeb + "://crystalmq.bevywise.com:" + portaWeb + "/mqtt");
+
+    mqttClient = mqtt.connect(protocolloWeb + '://crystalmq.bevywise.com:' + portaWeb + '/mqtt', opzioni);
+
+    mqttClient.on('connect', function () {
+        console.log("Connesso con successo a Bevywise!");
+        document.getElementById('stato_reale').innerText = "CONNESSO AL BROKER BEVYWISE";
+        document.getElementById('stato_reale').style.color = "green";
+        
+        mqttClient.subscribe(topicStato, { qos: 1 });
+    });
+
+    mqttClient.on('message', function (topic, message) {
+        if (topic === topicStato) {
+            var payload = message.toString();
+            var s = document.getElementById('stato_reale');
+            var t = document.getElementById('UltimoAggiornamento');
+            
+            // Decodifica la stringa CSV (livello,stato,1) trasmessa dal tuo script Python
+            var campi = payload.split(',');
+            var livello = campi[0] ? campi[0].trim() : '...';
+            var statoValvola = campi[1] ? campi[1].trim() : '...';
+            
+            s.innerText = "VALVOLA " + statoValvola.toUpperCase() + " - Livello: " + livello + "%";
+            s.style.color = (statoValvola.toUpperCase() === "APRI" || statoValvola.toUpperCase() === "APERTA") ? "red" : "green";
+            
+            var ora = new Date();
+            t.innerText = "Dato sincronizzato alle: " + ora.toLocaleTimeString();
+        }
+    });
+
+    mqttClient.on('error', function (err) {
+        console.error("Errore MQTT:", err);
+        document.getElementById('stato_reale').innerText = "ERRORE DI RETE";
+        document.getElementById('stato_reale').style.color = "red";
+    });
+}
+
+// 4. LE FUNZIONI OPERATIVE DI INVIO COMANDO
+function inviaComando(azione) {
+    var d = document.getElementById('stato_reale');
+    
+    if (!mqttClient || !mqttClient.connected) {
+        d.innerText = "Non connesso! Ricarica.";
+        d.style.color = "red";
+        return;
+    }
+
+    d.innerText = "Invio " + azione + "...";
+    d.style.color = "orange";
+
+    mqttClient.publish(topicComando, azione, { qos: 1 }, function (err) {
+        if (!err) {
+            console.log("Comando " + azione + " inviato con successo!");
+        }
+    });
+}
+
+function inviaComandoManualeLetto() {
+    var campo = document.getElementById('testo_comando_libero');
+    var comandoEstratto = campo.value.trim();
+    
+    if (comandoEstratto === "") {
+        alert("Digita un comando prima di premere invio!");
+        return;
+    }
+    
+    inviaComando(comandoEstratto);
+    campo.value = ""; 
+}
+
+// Fai partire l'inizializzazione appena la pagina si è aperta a schermo
+window.addEventListener('DOMContentLoaded', inizializzaMqtt);
+</script>
+</body>
+</html>
