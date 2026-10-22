@@ -1,0 +1,190 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INDRET TELECOMANDO </title>
+<script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
+
+/*<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="https://unpkg.com/mqtt/dist/mqtt.v4.js"></script>*/
+<!-- <script src="mqtt-v4.js" type="text/javascript"></script> -->
+    <style>
+	        /* Contenitore per affiancare i pulsanti */
+       .container-pulsanti { display: flex; gap: 10px; width: 100%; max-width: 400px; margin: 5px auto; 0  }
+
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 20px; background: #f0f0f0; padding: 10px; }
+        .pannello { max-width: 920px; margin: 0 auto; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); box-sizing: border-box; }
+        h2 { color: #333; margin-bottom: 20px; }
+        
+        /* Stili coordinati del consorzio */
+        .btn-cmd { width: 40%; max-width: 150px; padding: 12px; margin: 10px 0; font-size: 20px; font-weight: bold; color: white; border: none; border-radius: 10px; cursor: pointer; display: inline-block; box-shadow: 0 3px 6px rgba(0,0,0,0.1); }
+        .btn-apri { background-color:   #5cb85c; }
+        .btn-chiudi { background-color: #d9534f; }
+        .btn-auto { background-color: #7275d8; }
+        .btn-comando { background-color: #774455;  }
+        
+        .input-manuale { padding: 12px; font-size: 18px; text-align: center; border-radius: 5px; border: 2px solid #774455; width: 75%; max-width: 380px; margin-top: 15px; box-sizing: border-box; }
+        
+        .btn-link { display: block; width: 65%; max-width: 300px; padding: 15px; margin: 15px auto 0 auto; font-size: 18px; font-weight: bold; color: white; background-color: #0275d8; text-decoration: none; border-radius: 10px; box-shadow: 0 3px 6px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+<div class="pannello">
+    <h4>INDRET COMANDI a:<span id="nome_device" display: inline; style="color: purple;" margin-bottom: 0px; margin-top: 0px; >...</span></h4>
+    
+    <!-- Area di visualizzazione dello stato realtime della valvola -->
+    <div id="stato_connessione" style="font-size:20px; font-weight:bold; color:blue; margin-bottom:5px;">CONNESSIONE IN CORSO...</div>
+    <span style="font-weight: bold; color: #333;">TX:</span>
+    <div id="stato_reale"   style="display: inline-block; font-size:20px; color:#666; margin-bottom:10px;">Nessun dato trasmesso</div>
+    <br>
+	<span style="font-weight: bold; color: #333;">RX:</span>
+    <div id="stato_ricevuto"  style="display: inline-block; font-size:20px; color:#666; margin-bottom:10px;">Nessun dato ricevuto</div>
+
+<div class="container-pulsanti">
+    <button onclick="publishMessageV4('irriguo/donnas/pi3_2/comando', 'APRI')" class="btn-cmd btn-apri">APRI</button>
+    <button onclick="publishMessageV4('irriguo/donnas/pi3_2/comando', 'CHIUDI')" class="btn-cmd btn-chiudi">CHIUDI</button>
+</div>
+<div class="container-pulsanti">
+     <button onclick="publishMessageV4('irriguo/donnas/pi3_2/comando', 'AUTO')" class="btn-cmd btn-auto">AUTO</button>
+     <button onclick="publishMessageV4('irriguo/donnas/pi3_2/comando', 'STAT')" class="btn-cmd btn-auto">STAT</button>
+</div>
+     <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+<div class="container-pulsanti">
+     <input type="text" id="testo_comando_libero" class="input-manuale"  width: 78%; placeholder="Scrivi comando manuale...",required><br>
+     <button onclick="inviaComandoManualeLetto()" class="btn-cmd btn-comando" style="margin-top: 10px;font-size: 14px; width: 18%;">INVIA</button>
+</div>
+<div class="container-pulsanti">
+        <a href="https://irriguoindret.free.je" class="btn-link">📊 HOME</a>
+	    <a href="https://irriguoindret.free.je/view.html" class="btn-link">📊 STATO </a>
+</div>
+		</div>
+
+    <p style="font-style: italic; color: #666; margin-top: 20px; font-size: 12px;">
+        "L'acqua è un bene prezioso, non sprecarla."
+    </p>
+</div>
+
+
+<script>
+
+/* copilot render*/
+const hostname = 'crystalmq.bevywise.com';
+const port = 10443;
+const url = `wss://${hostname}:${port}/mqtt`; // se il broker espone websocket TLS
+var clientId = 'WEB_to_PI3_2';
+const username = 'xgW9jpWlxSieGetEDZ';
+const password = 'Y4H3Mb2qCPTSE0cuAv';
+var topicDestinazione = "irriguo/donnas/pi3_2/comando"; 
+var topicAscolto = "irriguo/donnas/pi3_2/stato"; 
+
+var urlParams = new URLSearchParams(window.location.search);
+var deviceDallUrl = urlParams.get('device');
+var userDallUrl = urlParams.get('user');
+if (deviceDallUrl)  // legge da ?device=1 il raspberrry da connettere
+  {
+   localStorage.setItem('consorzio_device_attivo', deviceDallUrl.toLowerCase().trim());
+  }
+if (userDallUrl)  // legge da ?device=1 il raspberrry da connettere
+  {
+   localStorage.setItem('consorzio_user_attivo', userDallUrl.toLowerCase().trim());
+  }
+
+var deviceCorrente = localStorage.getItem('consorzio_device_attivo') || 'pi3_2';
+var userCorrente = localStorage.getItem('consorzio_user_attivo') || 'peter';
+var indicatore = document.getElementById('nome_device');
+if  (deviceCorrente =="1" || deviceCorrente =="pi3_1")
+  { 
+   clientId = userCorrente+'_1';
+   topicDestinazione = "irriguo/donnas/pi3_1/comando"; 
+   topicAscolto = "irriguo/donnas/pi3_1/stato"; 
+   document.getElementById('nome_device').innerHTML = "ARTADA" ; 
+  }
+if  (deviceCorrente =="2" || deviceCorrente =="pi3_2")
+  {
+   clientId = userCorrente+'_2';
+   topicDestinazione = "irriguo/donnas/pi3_2/comando"; 
+   topicAscolto = "irriguo/donnas/pi3_2/stato";  
+   document.getElementById('nome_device').innerHTML = "SCRIVANIA" ; 
+  }
+
+indicatore.style.color = "red";
+ 	
+  //Connect with Authentication:
+
+const client = mqtt.connect(url, {
+    clientId: clientId,
+    username: 'xgW9jpWlxSieGetEDZ',
+    password: 'Y4H3Mb2qCPTSE0cuAv',
+    clean: true,
+    reconnectPeriod: 5000,
+    connectTimeout: 10000,
+    keepalive: 30,
+    protocolVersion: 5
+});
+
+client.on('connect', () => {
+    console.log('Connesso al broker');
+    document.getElementById('stato_connessione').innerHTML = 'connesso a ' + clientId;
+
+    client.subscribe(topicAscolto, (err) => {
+        if (!err) {
+            console.log('Sottoscritto a:', topicAscolto);
+        } else {
+            console.error('Subscribe error:', err);
+        }
+    });
+});
+
+client.on('error', (err) => {
+    console.error('MQTT error:', err);
+    document.getElementById('stato_connessione').innerHTML = 'ERRORE CONNESSIONE';
+});
+
+client.on('close', () => {
+    console.log('Connessione chiusa');
+    document.getElementById('stato_connessione').innerHTML = 'sconnesso';
+});
+
+client.on('message', (topic, message) => {
+    console.log('Ricevuto:', topic, message.toString());
+    document.getElementById('stato_ricevuto').innerHTML = message.toString();
+});
+
+//document.getElementById('stato_connessione').innerHTML = "connesso" +" a "+ clientId; 
+
+
+window.publishMessageV4 = function (topic, message) {
+    var indicatore = document.getElementById('stato_reale');
+    var indicatore2 = document.getElementById('stato_ricevuto');
+    mqttV4Client.publish(topic, message, { qos: 1 }, (err) => {
+        if (!err) {
+            console.log(`Published message on MQTT v4: ${topic} - ${message}`);
+            document.getElementById('stato_reale').innerHTML = message ; 
+            indicatore.style.color = "red";
+            document.getElementById('stato_ricevuto').innerHTML = "Attesa Risposta" ; 
+            indicatore2.style.color = "black";
+        } else {
+            console.error(`Failed to publish message on MQTT v4: ${err}`);
+        }
+    });
+};
+
+
+window.inviaComandoManualeLetto = function ( ) 
+    {
+     
+    var campo = document.getElementById('testo_comando_libero');
+    var comandoEstratto = campo.value.trim();
+    if (comandoEstratto === "") {
+        alert("Digita un comando prima di premere invio!");
+        return;
+    }
+	publishMessageV4(topicDestinazione, comandoEstratto) ;
+   }
+
+</script>
+</body>
+</html>
