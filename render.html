@@ -7,8 +7,6 @@
 <title>INDRET TELECOMANDO </title>
 <script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
 
-/*<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-<script src="https://unpkg.com/mqtt/dist/mqtt.v4.js"></script>*/
 <!-- <script src="mqtt-v4.js" type="text/javascript"></script> -->
     <style>
 	        /* Contenitore per affiancare i pulsanti */
@@ -122,7 +120,7 @@ const client = mqtt.connect(url, {
     reconnectPeriod: 5000,
     connectTimeout: 10000,
     keepalive: 30,
-    protocolVersion: 5
+    protocolVersion: 4
 });
 
 client.on('connect', () => {
@@ -159,7 +157,7 @@ client.on('message', (topic, message) => {
 window.publishMessageV4 = function (topic, message) {
     var indicatore = document.getElementById('stato_reale');
     var indicatore2 = document.getElementById('stato_ricevuto');
-    mqttV4Client.publish(topic, message, { qos: 1 }, (err) => {
+    client.publish(topic, message, { qos: 1 }, (err) => {
         if (!err) {
             console.log(`Published message on MQTT v4: ${topic} - ${message}`);
             document.getElementById('stato_reale').innerHTML = message ; 
