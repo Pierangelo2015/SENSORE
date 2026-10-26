@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Sito IRRIGUO INDRET Donnas 2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        table { font-size: 48px; border-collapse: collapse; margin-top: 20px; width: 95%; font-family: sans-serif; }
+        th { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 36px; }
+        td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 28px; }
+        th { background-color: #5FFF5F; color: red; font-weight: bold; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        #messaggio { font-weight: bold; color: #666; font-size:40px; }
+        
+        /* Stile del bottone indietro stile consorzio */
+        .btn-indietro { display: inline-block; padding: 12px 30px; font-size: 24px; font-weight: bold; color: white;
+                        background-color: #0275d8; text-decoration: none; border-radius: 5px; border: none; cursor: pointer; margin-top: 20px; }
+        .btn-indietro:hover { background-color: #025aa5; }
+    </style>
+</head>
+<body>
+
+<h2 id="titolo_vasca">Orari irrigazione ...</h2>
+<div id="messaggio">Caricamento dati in corso...</div>
+
+<!-- Contenitore della tabella -->
+<div id="tabellaContenitore"></div>
+
+<!-- Bottone Indietro che riporta alla Home index2.html mantenendo inalterata la sessione -->
+<p><button id="mioBottone" class="btn-indietro" onclick="window.location.href='index.html'">Indietro!</button></p>
+
+<script>
+    // Variabile per accumulare i messaggi intercettati
+    let logMessaggi = "";
+
+    const alertOriginale = window.alert;
+    window.alert = function(testo) {
+        logMessaggi += testo + "\n";
+        alertOriginale(testo);
+    };
+
+    // CORREZIONE: Usato 'function' al posto di 'def'
+    function showAlertOriginale() {
+        alert("Questo è un messaggio di prova intercettato!");
+    }
+
+    // CORREZIONE: Usato 'function' al posto di 'def'
+    function scaricaFile() {
+        const blob = new Blob([logMessaggi], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'log_messaggi.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+</script>
+
+<script>
+    //  legge ?device=1 se non c'e legge eventuale in memoria
+    var urlParams = new URLSearchParams(window.location.search);
+    var deviceDallUrl = urlParams.get('device');
+
+    if (deviceDallUrl)
+     {
+        // Se lo passi esplicitamente via indirizzo (?device=pi3_x), aggiorna il cookie sul disco
+        localStorage.setItem('consorzio_device_attivo', deviceDallUrl.toLowerCase().trim());
+     }
+
+     // RECUPERO MEMORIA INTELLIGENTE: Legge il cookie per sapere quale vasca caricare se l'URL è vuoto
+    var deviceAttivo = localStorage.getItem('consorzio_device_attivo') || '1';
+
+    // Configurazione del file e del titolo in base al dispositivo ricordato
+    var nomeVascaUmanizzato = "ARTADA ??";
+    var nomeVascaUmanizzato = `ARTADA ${deviceAttivo === '1' ? '' : deviceAttivo}`;
+    
+    URL_FILE = `orari${deviceAttivo === '1' ? '' : deviceAttivo}.txt`;
+ 
+    
+    // Scrive dinamicamente il titolo corretto della vasca a schermo
+    document.getElementById('titolo_vasca').innerText = "Gestione vasca " + nomeVascaUmanizzato;
+
+    // Funzione asincrona per scaricare e processare il file
+    async function caricaEElaboraCSV()
+     {
+        try 
+            {
+            const timestamp = new Date().getTime();
+            const risposta = await fetch(`${URL_FILE}?t=${timestamp}`, { cache: "no-store" });
+            
+            if (!risposta.ok)
+              {
+                throw new Error(`Impossibile caricare il file: ${risposta.statusText}`);
+              }
+
+            const testoCompleto = await risposta.text();
+            const righe = testoCompleto.split(/\r?\n/);
+            let htmlTabella = '<table>';
+
+            righe.forEach((riga, indiceRiga) => 
+                {
+                if (riga.trim() === '') return; 
+
+                const celle = riga.split(',');
+                let stileRiga = "";
+                let stileCellaSpeciale ="";
+                
+                if (riga.toUpperCase().includes("COMANDI") || riga.toUpperCase().includes("ORARI")) 
+                {
+                    stileRiga = ' style="font-size: 100px !important; background-color: #22CCCC; font-weight: bold; color: blue;"';
+                    stileCellaSpeciale = ' style="font-size: 40px !important; font-weight: bold; color: blue !important;"';
+                    htmlTabella += `<tr${stileRiga}>`;
+                }
+                else
+                {
+                    htmlTabella += '<tr>';
+                }
+                
+                celle.forEach(cella =>
+                    {
+                    const datoPulito = cella.trim().replace(/^"|"\$/g, ''); 
+                    
+                    if (indiceRiga === 0)
+                       {
+                        htmlTabella += `<th>${datoPulito}</th>`; 
+                       } 
+                       else
+                       {
+                        htmlTabella += `<td${stileCellaSpeciale}>${datoPulito}</td>`; 
+                       }
+                    });
+                  htmlTabella += '</tr>';
+                });
+
+            htmlTabella += '</table>';
+
+            document.getElementById('messaggio').style.display = 'none';
+            document.getElementById('tabellaContenitore').innerHTML = htmlTabella;
+
+        } 
+         catch (errore)
+         {
+            document.getElementById('messaggio').textContent = "Errore di lettura database: " + errore.message;
+            document.getElementById('messaggio').style.color = "red";
+        }
+    }
+
+    // Esecuzione ciclica e caricamento
+    window.addEventListener('DOMContentLoaded', () =>
+    {
+        caricaEElaboraCSV(); 
+        // Esegue il refresh automatico della tabella ogni 10 secondi per aggiornare i dati della SIM Iliad
+        setInterval(caricaEElaboraCSV, 10000); 
+    }
+  );
+</script>
+</body>
+</html>
